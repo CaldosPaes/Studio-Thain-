@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Studio Thainá Beauty | </title>
+    <title>Studio Thainá Beauty | Management</title>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Montserrat:wght@100;300;600&display=swap" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+
     <style>
         :root {
             --burgundy: #120303;
@@ -166,7 +170,7 @@
     <div id="splash">
         <div class="logo-box">
             <h1 class="logo-txt">Studio Thainá</h1>
-            <p style="color: var(--gold); letter-spacing: 8px; font-size: 0.7rem; margin-top: 20px; font-weight: 200;"></p>
+            <p style="color: var(--gold); letter-spacing: 8px; font-size: 0.7rem; margin-top: 20px; font-weight: 200;">CLOUD EDITION</p>
         </div>
     </div>
 
@@ -203,7 +207,7 @@
             
             <div class="input-wrap">
                 <label>Nome da Cliente</label>
-                <input type="text" id="in-nome" placeholder="nome da cliente">
+                <input type="text" id="in-nome" placeholder="Isabella d'Este">
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
@@ -228,6 +232,21 @@
     </div>
 
     <script>
+        // --- CONFIGURAÇÃO FIREBASE ---
+        const firebaseConfig = { 
+            apiKey: "AIzaSyB5WTIfRlINDEt_f2cuIFvmRpAf9vDErP4", 
+            authDomain: "studio-thaina.firebaseapp.com", 
+            projectId: "studio-thaina", 
+            storageBucket: "studio-thaina.firebasestorage.app", 
+            messagingSenderId: "243259332862", 
+            appId: "1:243259332862:web:e582b929fca128e9e5edaf", 
+            measurementId: "G-W8RB689VZ3" 
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
         // --- MÁSCARAS INTELIGENTES ---
         document.getElementById('in-data').addEventListener('input', function (e) {
             let v = e.target.value.replace(/\D/g, '');
@@ -255,7 +274,7 @@
         }
         let pInt = setInterval(spawnPetal, 150);
 
-        // --- NAVEGAÇÃO ---
+        // --- NAVEGAÇÃO & SYNC ---
         window.onload = () => {
             setTimeout(() => {
                 document.getElementById('splash').style.transform = 'translateY(-100%)';
@@ -269,7 +288,7 @@
         function openM() { document.getElementById('modal').style.display = 'flex'; }
         function closeM() { document.getElementById('modal').style.display = 'none'; }
 
-        // --- LÓGICA DE AGENDAMENTO ---
+        // --- LÓGICA FIREBASE (ADD / LISTEN / REMOVE) ---
         function add() {
             const n = document.getElementById('in-nome').value;
             const d = document.getElementById('in-data').value;
@@ -278,22 +297,38 @@
 
             if(!n || !d || !h || !p) return;
 
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td style="font-weight:600; letter-spacing: 1px;">${n}</td>
-                <td>${d}</td>
-                <td class="gold-txt">${h}</td>
-                <td style="font-style:italic; opacity: 0.8;">${p}</td>
-                <td style="text-align: right;">
-                    <button class="btn-action" onclick="this.closest('tr').remove(); check();">Excluir</button>
-                </td>
-            `;
-
-            document.getElementById('agenda-list').appendChild(row);
-            check(); closeM();
+            db.ref('agendamentos').push({ n, d, h, p });
             
-            // Clear inputs
+            closeM();
             ['in-nome','in-data','in-hora','in-proc'].forEach(id => document.getElementById(id).value = "");
+        }
+
+        // Ouvir mudanças no banco em tempo real
+        db.ref('agendamentos').on('value', (snapshot) => {
+            const list = document.getElementById('agenda-list');
+            list.innerHTML = "";
+            
+            snapshot.forEach((item) => {
+                const data = item.val();
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="font-weight:600; letter-spacing: 1px;">${data.n}</td>
+                    <td>${data.d}</td>
+                    <td class="gold-txt">${data.h}</td>
+                    <td style="font-style:italic; opacity: 0.8;">${data.p}</td>
+                    <td style="text-align: right;">
+                        <button class="btn-action" onclick="removeData('${item.key}')">Excluir</button>
+                    </td>
+                `;
+                list.appendChild(row);
+            });
+            check();
+        });
+
+        function removeData(key) {
+            if(confirm("Deseja remover este agendamento?")) {
+                db.ref('agendamentos/' + key).remove();
+            }
         }
 
         function check() {
